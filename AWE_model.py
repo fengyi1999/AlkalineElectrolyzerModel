@@ -1,8 +1,17 @@
+import sys, os
+sys.path.append(os.getcwd())
+import prop_data
 import pyomo.environ as pe
 import pyomo.dae as dae
 import matplotlib.pyplot as plt
 import numpy as np
-
+R = 8.314
+F = 96485
+'''
+     ||--x--||
+anode||     ||cathode
+     ||     ||
+'''
 Parameters = {
     # 使用浮点数吧
     'Nc': 45,  # number of cells
@@ -44,17 +53,37 @@ class DynamicModel(object):
         md.P0 = pe.Param(initialize=self.Pa['P0'])
         md.T0 = pe.Param(initialize=self.Pa['T0'])
         md.w = pe.Param(initialize=self.Pa['w'])
-        md.L_an = pe.Param(initialize=self.Pa['L_an'])
-        md.L_cat = pe.Param(initialize=self.Pa['L_cat'])
+        md.L_an = pe.Param(initialize=self.Pa['L_an']/1000)  # m
+        md.L_cat = pe.Param(initialize=self.Pa['L_cat']/1000)
 
         md.t = dae.ContinuousSet(bounds=(0, self.t))
         IorUorP = 0  # 0: I, 1: U, 2: P
         if IorUorP == 0:
             md.I = pe.Param(md.t, initialize=lambda md, i: self.I[0, i-1])
-            md.U = pe.Var(md.t, domain=pe.Reals, initialize=lambda md, i: self.U[0, i-1])
-            md.P = pe.Expression(md.t, rule= lambda md, i: md.I[i]*md.U[i])
-        md.I.display()
 
+            md.U = pe.Var(md.t, domain=pe.NonNegativeReals, initialize=lambda md, i: self.U[0, i-1])
+            md.Power = pe.Expression(md.t, rule= lambda md, i: md.I[i]*md.U[i])
+        # md.I.display()
+        md.T = pe.Var(md.t, initialize=md.T0)
+        md.T[0].fix()
+
+        md.electrodes = pe.Set(initialize=['anode', 'cathode'])
+        md.eXt = md.electrodes*md.t
+        md.Pressure = pe.Var(md.eXt, initialize=md.P0)
+        md.J = pe.Expression(md.eXt, initialize=lambda md,e,t:md.I[t]/md.A)
+        md.species = pe.Set(initialize=['H2O', 'H2', 'O2', 'KOH'])
+        md.sXeXt = md.species*md.eXt
+        def _init_mole_fraction(md,s,e,t):  # mol/mol
+            nKOH = md.w/100/prop_data.Pro_Cons['KOH']['MW']*1000
+            nH2O = (1-md.w/100)/prop_data.Pro_Cons['H2O']['MW']*1000
+            if s == 'KOH':
+                return nKOH/(nKOH+nH2O)  # mole concentration
+            if s == 'H2O':
+                return nH2O/(nKOH+nH2O)
+            else:
+                return 0
+        md.x0 = pe.Param(md.sXeXt, rule=_init_mole_fraction)
+        md.x0.display()
         # pe.TransformationFactory('dae.collocation').apply_to(md, nfe=10, ncp=self.number_of_steps/10, scheme='LAGRANGE-RADAU')  # RADAU, LEGENDRE
 
 if __name__ == '__main__':

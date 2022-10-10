@@ -96,6 +96,7 @@ def AWESTACK(Para, ParaF):
             w / 115.96277)) / 5610.5  # mole concentration
 
     md.m = pe.Expression(md.t, rule=_eq_m)
+
     def reversible_potential(b):
         def _eq_E0(b, j):
             return (1.5184 - 1.5421 * 10 ** (-3) * md.T[j] + 9.523 * 10 ** (-5) * md.T[j] * pe.log(md.T[j]) + 9.84 * 10 ** (-8) * md.T[j] ** 2)  # standard potential
