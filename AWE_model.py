@@ -1,5 +1,6 @@
 import sys, os
 sys.path.append(os.getcwd())
+
 import prop_data
 import pyomo.environ as pe
 import pyomo.dae as dae
@@ -13,7 +14,6 @@ anode||     ||cathode
      ||     ||
 '''
 Parameters = {
-    # 使用浮点数吧
     'Nc': 45,  # number of cells
     'A': 1.25,  # effective area of membrane electrode, m2
     'w': 30.0,  # electrlyte cncentration wt%
