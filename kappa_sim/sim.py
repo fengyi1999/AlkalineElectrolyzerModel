@@ -32,8 +32,13 @@ md.B = pe.Var(initialize=0)
 md.C = pe.Var(initialize=0)
 md.D = pe.Var(initialize=0)
 md.E = pe.Var(initialize=0)
+md.F = pe.Var(initialize=0)
+md.G = pe.Var(initialize=0)
+md.H = pe.Var(initialize=0)
+md.I = pe.Var(initialize=0)
 def _cal_kappa(md,i,j):
-    return md.A*md.wt[i]+md.B*md.wt[i]*md.T[j]+md.C*md.wt[i]**2+md.D*md.T[j]**2+md.E*md.T[j]
+    return md.A*md.wt[i]+md.B*md.wt[i]*md.T[j]+md.C*md.wt[i]**2+md.D*md.T[j]**2+md.E*md.T[j]+md.F*md.wt[i]*md.T[j]**2+md.G*md.wt[i]**2*md.T[j]+\
+           md.H*md.wt[i]**(-1)+md.I*md.T[j]**(-1)
 md.md_data = pe.Expression(md.kappa_set, rule=_cal_kappa)
 def _init_error(md,i,j):
     return (md.md_data[i,j]-md.exp_data[i,j])/md.exp_data[i,j]
