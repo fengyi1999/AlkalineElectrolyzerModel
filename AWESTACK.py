@@ -285,7 +285,8 @@ def AWESTACK(Para, ParaF):
     solver = pe.SolverFactory('ipopt',tee=False)
 
     flag = solver.solve(md, tee=True, symbolic_solver_labels=True)
-    md.Cstack.display()
+    # md.Cstack.display()
+    md.m.display()
     # md.J.pprint()
     # print(flag)
     # md.T.display()

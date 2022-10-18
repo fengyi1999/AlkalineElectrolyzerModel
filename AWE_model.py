@@ -48,7 +48,7 @@ class DynamicModel(object):
 
     def build(self):
         md = pe.ConcreteModel()
-        md.A = pe.Param(initialize=self.Pa['A'])
+        md.A = pe.Param(initialize=self.Pa['A']) # m2
         md.Nc = pe.Param(initialize=self.Pa['Nc'])
         md.P0 = pe.Param(initialize=self.Pa['P0'])
         md.T0 = pe.Param(initialize=self.Pa['T0'])
@@ -70,7 +70,7 @@ class DynamicModel(object):
         md.electrodes = pe.Set(initialize=['anode', 'cathode'])
         md.eXt = md.electrodes*md.t
         md.Pressure = pe.Var(md.eXt, initialize=md.P0)
-        md.J = pe.Expression(md.eXt, initialize=lambda md,e,t:md.I[t]/md.A)
+        md.J = pe.Expression(md.t, initialize=lambda md,e,t:md.I[t]/md.A)
         md.species = pe.Set(initialize=['H2O', 'H2', 'O2', 'KOH'])
         md.sXeXt = md.species*md.eXt
         def _init_mole_fraction(md,s,e,t):  # mol/mol
@@ -83,7 +83,23 @@ class DynamicModel(object):
             else:
                 return 0
         md.x0 = pe.Param(md.sXeXt, rule=_init_mole_fraction)
-        md.x0.display()
+
+        def _cal_Erev(md,t):
+            E0 = (1.5184 - 1.5421 * 10 ** (-3) * md.T[t] + 9.523 * 10 ** (-5) * md.T[t] * pe.log(md.T[t]) +\
+                  9.84 * 10 ** (-8) * md.T[t] ** 2)  # standard potential
+            P_H2O_ = md.T[t] ** (-3.4159) * pe.exp(37.043 - 6275.7 / md.T[t])  # vapor pressure of pure water
+            P_H2O = md.T[t] ** (-3.498) * pe.exp(37.93 - 6426.32 / md.T[t]) * \
+                   pe.exp(0.016214 - 0.13082 * md.x0['KOH', 'a', t] + 0.1933 * pe.sqrt(
+                       md.x0['KOH', 'a', t]))  # pressure of the wet hydrogen and oxygen gases near the electrode
+            Erev = E0 + R * md.T[t] / 2 / F * pe.log((md.Pressure['a', t] - P_H2O) ** 1.5 * P_H2O_ / P_H2O)  # reversible voltage
+            return Erev
+        md.Erev = pe.Expression(md.t, rule=_cal_Erev)
+
+        def _cal_theta(md,e,t):
+            if e == 'a':
+                return 0.048 * (md.J[t]/10000) ** (1/3)
+            if e == 'c':
+                return 0.024 * (md.J[t]/10000) ** (1/3)
         # pe.TransformationFactory('dae.collocation').apply_to(md, nfe=10, ncp=self.number_of_steps/10, scheme='LAGRANGE-RADAU')  # RADAU, LEGENDRE
 
 if __name__ == '__main__':
