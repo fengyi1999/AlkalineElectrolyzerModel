@@ -93,7 +93,7 @@ def AWESTACK(Para, ParaF):
     # md.voltage = pe.Block(md)
     def _eq_m(md, j):
         return w * (183.1221 - 0.56845 * (md.T[j] - 273) + 984.5679 * pe.exp(
-            w / 115.96277)) / 5610.5  # mole concentration
+            w / 115.96277)) / 5610.5  # molarity
 
     md.m = pe.Expression(md.t, rule=_eq_m)
 
