@@ -65,13 +65,13 @@ class DynamicModel(object):
         md.act_an3 = pe.Param(initialize=self.PaF['act_an3'])
         md.act_cat3 = pe.Param(initialize=self.PaF['act_cat3'])
         md.ohm_ele = pe.Param(initialize=self.PaF['ohm_ele'])
-
+        md.L_mem = pe.Param(initialize=5e-3, name='thickness of membrance')
         md.t = dae.ContinuousSet(bounds=(0, self.t), name='time,s')
         IorUorP = 0  # 0: I, 1: U, 2: P
         if IorUorP == 0:
             md.I = pe.Param(md.t, initialize=lambda md, i: self.I[0, i-1])
 
-            md.U = pe.Var(md.t, domain=pe.NonNegativeReals, initialize=lambda md, i: self.U[0, i-1])
+            # md.U = pe.Var(md.t, domain=pe.NonNegativeReals, initialize=lambda md, i: self.U[0, i-1])
             md.Power = pe.Expression(md.t, rule= lambda md, i: md.I[i]*md.U[i])
         # md.I.display()
         md.T = pe.Var(md.t, initialize=md.T0, name='temperature')
@@ -151,9 +151,32 @@ class DynamicModel(object):
             Ran = 1 /sigma_electrode * md.L_an / md.A
             Rcat = 1 /sigma_electrode * md.L_cat / md.A
             RKOH = 1 / (1 - 2/3*md.theta[e,t]) ** 1.5 * ((md.dm / 1000) * 2) / md.A / sigma_KOH
-            Rmem = (0.06 + 80 * pe.exp(-md.T[t] / 50)) / 10000/(md.Sm[e,t])
+            Rmem = (0.06 + 80 * pe.exp(-md.T[t] / 50)) / 10000/(md.L_mem)
             Eohm = md.J[t] * md.A * (Rmem+RKOH+Ran+Rcat)
+            if e == 'a':
+                Eohm = md.J[t] * md.A * (Rmem/2+RKOH+Ran)
+            if e == 'c':
+                Eohm = md.J[t] * md.A * (Rmem / 2 + RKOH + Rcat)
             return Eohm
+        md.Eohm = pe.Expression(md.eXt, rule=_cal_Eohm)
+
+        md.f1 = pe.Param(initialize=2.5, name='farady efficience index')
+        md.f2 = pe.Param(initialize=0.96, name='farady efficience index')
+        def _cal_etaF(md,e,t):
+            return md.Jeff[e,t]**2*md.f2/(md.f1+md.Jeff[e,t]**2)
+        md.etaF = pe.Expression(md.eXt, rule=_cal_etaF, name='Faraday efficience')
+        def _cal_E(md,t):
+            return md.Nc*(md.Erev[t]+md.Eact['a',t]+md.Eact['c',t]+md.Eohm['a',t]+md.Eohm['c',t])
+        md.E = pe.Expression(md.t, rule=_cal_E)
+
+        def _cal_w(md,e,t):
+        # TODO:假设各小室并联，相同电极侧浓度相同，小室内KOH体积不变
+            nOH = md.etaF[e,t]*md.I[t]/F
+            dmKOH = prop_data.Pro_Cons['KOH']['MW']*1000
+            if e == 'a':
+                return
+            if e == 'c':
+                return md.etaF[e,t]*md.I[t]/F
         # pe.TransformationFactory('dae.collocation').apply_to(md, nfe=10, ncp=self.number_of_steps/10, scheme='LAGRANGE-RADAU')  # RADAU, LEGENDRE
 if __name__ == '__main__':
     DynamicModel(Parameters, ParametersFitted)
